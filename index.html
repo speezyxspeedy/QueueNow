@@ -1,0 +1,817 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QueueNow - Real-Time Digital Token & Queue Management</title>
+    <meta name="description" content="Skip the Waiting. Track Your Turn. Real-time digital token and queue management SaaS for clinics, salons, repair shops, and service businesses." />
+    
+    <!-- OpenGraph & Social Cards -->
+    <meta property="og:title" content="QueueNow - Real-Time Digital Token & Queue Management" />
+    <meta property="og:description" content="Skip the Waiting. Track Your Turn. Real-time digital queues, mobile token tracking, and waiting room TV display." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- Google Fonts: Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+    <!-- Supabase CDN (Official JS SDK v2) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- QRCode Generation Library CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+
+    <!-- QueueNow Styles -->
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <!-- Ambient Backdrop Gradient -->
+    <div class="ambient-glow"></div>
+
+    <!-- Application Top Navigation -->
+    <header class="header-navbar">
+      <div class="brand-wrapper" onclick="window.QueueApp.openModal('modalSupabaseConfig')">
+        <div class="brand-icon-box">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>QueueNow</h1>
+          <p>Skip the Waiting. Track Your Turn.</p>
+        </div>
+      </div>
+
+      <!-- Experience Switcher Navigation Tabs -->
+      <nav class="view-mode-tabs">
+        <button class="mode-tab-btn active" data-view="owner">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+          Owner Dashboard
+        </button>
+        <button class="mode-tab-btn" data-view="customer">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+          Customer Mobile
+        </button>
+        <button class="mode-tab-btn" data-view="tv">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg>
+          Waiting Room TV
+        </button>
+      </nav>
+
+      <div class="header-actions">
+        <!-- Live Connection Indicator (Clickable to inspect Supabase settings) -->
+        <div id="connectionStatusIndicator" class="live-indicator simulated" onclick="window.QueueApp.openModal('modalSupabaseConfig')">
+          <span class="live-dot"></span> Instant Live Engine
+        </div>
+        <!-- Sound Test Chime Button -->
+        <button id="btnTestSound" class="btn btn-secondary btn-sm" title="Test Reception Chime & Speech Callout">
+          🔔 Test Chime
+        </button>
+      </div>
+    </header>
+
+    <!-- Dedicated Printable Sheet (Shown only in window.print) -->
+    <div id="printableFlyerSection" style="display: none;"></div>
+
+    <!-- Main Viewport -->
+    <main class="main-viewport">
+      
+      <!-- ============================================================= -->
+      <!-- VIEW 1: BUSINESS OWNER DASHBOARD                              -->
+      <!-- ============================================================= -->
+      <section id="ownerDashboardView" class="app-view active-view">
+        
+        <!-- Business Info & Quick Actions Banner -->
+        <div class="business-header-banner">
+          <div class="biz-info-cluster">
+            <div class="biz-avatar">🏥</div>
+            <div class="biz-titles">
+              <h2>
+                <span id="ownerBizName">Apex Health Clinic</span>
+                <span id="ownerBizCategory" class="biz-tag">Clinic</span>
+                <span id="ownerBizQueueStatus" class="biz-tag">Queue Open</span>
+              </h2>
+              <p id="ownerBizAddress" class="biz-subtext">742 Evergreen Terrace, Suite 100</p>
+            </div>
+          </div>
+          <div class="biz-quick-actions">
+            <button class="btn btn-outline btn-sm" onclick="window.QueueApp.openModal('modalCreateBusiness')">
+              🏢 + New Business
+            </button>
+            <button class="btn btn-outline btn-sm" onclick="window.QueueApp.openModal('modalAddWalkIn')">
+              ➕ Add Walk-In
+            </button>
+            <button class="btn btn-outline btn-sm" onclick="window.QueueApp.printWaitingRoomFlyer()">
+              🖨️ Print Flyer
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="window.location.search = '?join=' + window.QueueApp.getActiveBusinessSlug()">
+              📱 Customer View ↗
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="window.location.search = '?display=' + window.QueueApp.getActiveBusinessSlug()">
+              📺 TV Screen ↗
+            </button>
+          </div>
+        </div>
+
+        <!-- Master Queue Console (Now Serving & Big Controls) -->
+        <div class="queue-control-station">
+          <!-- Serving Highlight Card -->
+          <div class="now-serving-console">
+            <div>
+              <div class="console-label">
+                <span class="live-dot"></span> CURRENTLY SERVING
+              </div>
+              <div class="serving-token-display">
+                <div id="servingTokenCode" class="serving-token-code">QN-C101</div>
+                <div id="servingCustomerMeta" class="serving-customer-meta">Sarah Connor • Prescription renewal</div>
+              </div>
+            </div>
+            <div>
+              <span id="servingElapsedTimer" class="serving-elapsed-badge">⏱️ In service for ~6 min</span>
+            </div>
+          </div>
+
+          <!-- Queue Control Triggers -->
+          <div class="queue-action-buttons-grid">
+            <div class="actions-top-row">
+              <span class="actions-title">Queue Operation Controls</span>
+              <div class="queue-status-toggles">
+                <button id="btnPauseQueue" class="btn btn-outline btn-sm" onclick="window.QueueApp.toggleQueueStatus()">
+                  ⏸️ Pause Queue
+                </button>
+              </div>
+            </div>
+
+            <!-- Primary Large Action Buttons -->
+            <div class="primary-triggers">
+              <button id="btnCallNext" class="btn-call-next" onclick="window.QueueApp.callNextToken()">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                CALL NEXT TOKEN
+              </button>
+              <button class="btn btn-success" onclick="window.QueueApp.completeCurrentToken()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                Complete Current
+              </button>
+              <button class="btn btn-warning" onclick="window.QueueApp.skipCurrentToken()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+                Skip
+              </button>
+            </div>
+
+            <!-- Secondary Actions -->
+            <div class="secondary-triggers">
+              <button class="btn btn-secondary btn-sm" onclick="window.QueueApp.openModal('modalAddWalkIn')">
+                ➕ Manual Walk-In
+              </button>
+              <button class="btn btn-secondary btn-sm" onclick="window.QueueApp.toggleBookingStatus()">
+                🌐 Toggle Bookings
+              </button>
+              <button class="btn btn-secondary btn-sm" onclick="window.QueueApp.openModal('modalSupabaseConfig')">
+                🗄️ Database & SQL
+              </button>
+              <button class="btn btn-secondary btn-sm" onclick="window.QueueApp.printWaitingRoomFlyer()">
+                🖨️ Counter Sign
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Real-time KPI Stats Bar -->
+        <div class="kpi-metrics-grid">
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span>TOTAL TOKENS TODAY</span>
+              <span>🎫</span>
+            </div>
+            <div id="kpiTotalToday" class="kpi-val">5</div>
+            <div class="kpi-meta">Daily customer traffic</div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span>CURRENTLY WAITING</span>
+              <span>⏳</span>
+            </div>
+            <div id="kpiWaitingCount" class="kpi-val">3</div>
+            <div class="kpi-meta">Next in line queue</div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span>CURRENTLY SERVING</span>
+              <span>⚡</span>
+            </div>
+            <div id="kpiServingCount" class="kpi-val">1</div>
+            <div class="kpi-meta">At the service counter</div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span>COMPLETED CUSTOMERS</span>
+              <span>✅</span>
+            </div>
+            <div id="kpiCompletedCount" class="kpi-val">1</div>
+            <div class="kpi-meta">Served and resolved</div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span>SKIPPED / MISSED</span>
+              <span>⚠️</span>
+            </div>
+            <div id="kpiSkippedCount" class="kpi-val">0</div>
+            <div class="kpi-meta">Eligible for recall</div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span>ESTIMATED WAIT</span>
+              <span>⏱️</span>
+            </div>
+            <div id="kpiAvgWait" class="kpi-val">~24m</div>
+            <div class="kpi-meta">Dynamic queue pace</div>
+          </div>
+        </div>
+
+        <!-- Dashboard Navigation Sub-Tabs -->
+        <div class="dashboard-subnav">
+          <button class="subnav-tab-btn active" data-subtab="queue">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            Active Queue
+          </button>
+          <button class="subnav-tab-btn" data-subtab="qr">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            QR Code & Share Hub
+          </button>
+          <button class="subnav-tab-btn" data-subtab="analytics">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            Analytics & Reports
+          </button>
+          <button class="subnav-tab-btn" data-subtab="settings">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            Queue Settings
+          </button>
+        </div>
+
+        <!-- SUBTAB 1: LIVE QUEUE TABLE -->
+        <div id="tabPanelQueue" class="tab-content-panel active">
+          <div class="table-toolbar">
+            <div class="search-input-wrap">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input id="queueSearchInput" type="text" class="form-control" placeholder="Search token number or customer name..." />
+            </div>
+
+            <div class="filter-pill-group">
+              <button class="filter-pill active" data-filter="all">All Tokens</button>
+              <button class="filter-pill" data-filter="waiting">Waiting</button>
+              <button class="filter-pill" data-filter="serving">Serving</button>
+              <button class="filter-pill" data-filter="completed">Completed</button>
+              <button class="filter-pill" data-filter="skipped">Skipped</button>
+            </div>
+          </div>
+
+          <div class="data-table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Token #</th>
+                  <th>Customer</th>
+                  <th>Created</th>
+                  <th>Wait Duration</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="queueTableBody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- SUBTAB 2: QR CODE & SHARE HUB -->
+        <div id="tabPanelQr" class="tab-content-panel">
+          <div class="qr-hub-card">
+            <div class="qr-box-center">
+              <div id="qrCodeContainer" class="qr-canvas-holder"></div>
+              <div class="qr-caption">Scan to Join Digital Queue</div>
+              <div style="font-size:0.75rem; color:#64748b; margin-top:0.25rem;">Opens mobile token generator</div>
+            </div>
+
+            <div class="qr-details-column">
+              <div>
+                <h3 style="font-size:1.25rem; font-weight:700; margin-bottom:0.4rem;">Customer QR Code & Direct Links</h3>
+                <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:1.5rem;">
+                  Place this QR code at your reception desk, front door, or waiting area. Customers can scan with any mobile camera to join the queue without downloading an app.
+                </p>
+
+                <!-- Customer Join Link Box -->
+                <label class="form-label">Public Customer Join URL:</label>
+                <div class="url-copy-box">
+                  <code id="publicJoinUrlDisplay">https://yourdomain.com/?join=apex-clinic</code>
+                  <button id="btnCopyJoinUrl" class="btn btn-primary btn-sm">Copy Link</button>
+                </div>
+
+                <!-- Waiting Room TV Display Link Box -->
+                <label class="form-label">Waiting Room TV Display URL:</label>
+                <div class="url-copy-box">
+                  <code id="publicTvUrlDisplay">https://yourdomain.com/?display=apex-clinic</code>
+                  <button id="btnCopyTvUrl" class="btn btn-secondary btn-sm">Copy Link</button>
+                </div>
+              </div>
+
+              <div style="display:flex; gap:0.75rem; flex-wrap:wrap; margin-top:1rem;">
+                <button class="btn btn-primary" onclick="window.QueueApp.downloadQrCodePng()">
+                  📥 Download QR (PNG)
+                </button>
+                <button class="btn btn-secondary" onclick="window.QueueApp.printWaitingRoomFlyer()">
+                  🖨️ Print Counter Sign
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUBTAB 3: ANALYTICS & REPORTS -->
+        <div id="tabPanelAnalytics" class="tab-content-panel">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; flex-wrap:wrap; gap:1rem;">
+            <div>
+              <h3 style="font-size:1.2rem; font-weight:700;">Performance & Efficiency Analytics</h3>
+              <p style="font-size:0.82rem; color:var(--text-secondary);">Calculated from actual database timestamp records.</p>
+            </div>
+            <div style="display:flex; gap:0.75rem; align-items:center;">
+              <select id="analyticsDateFilter" class="form-control" style="width:160px;">
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="7days">Last 7 Days</option>
+                <option value="all">All Time</option>
+              </select>
+              <button class="btn btn-primary btn-sm" onclick="window.QueueApp.exportAnalyticsCsv()">
+                📥 Export CSV
+              </button>
+            </div>
+          </div>
+
+          <div class="analytics-grid">
+            <div class="analytics-chart-card">
+              <div class="chart-header">
+                <div>
+                  <h4 style="font-size:0.95rem; font-weight:600;">Hourly Customer Distribution</h4>
+                  <div style="font-size:0.75rem; color:var(--text-muted);">Queue volume by hour of day</div>
+                </div>
+                <div style="font-size:0.8rem; color:var(--text-secondary); font-weight:600;">
+                  Peak Hour: <span id="statPeakHour">10 AM</span>
+                </div>
+              </div>
+
+              <!-- CSS/SVG Bar Chart -->
+              <div id="hourlyBarChart" class="bar-chart-container">
+                <!-- Dynamically rendered -->
+              </div>
+            </div>
+
+            <!-- Efficiency Metrics Column -->
+            <div style="display:flex; flex-direction:column; gap:0.85rem;">
+              <div class="kpi-card">
+                <div class="kpi-header">
+                  <span>TOTAL SERVED</span>
+                  <span>🏆</span>
+                </div>
+                <div id="statTotalServed" class="kpi-val">1</div>
+                <div class="kpi-meta">Completed customer visits</div>
+              </div>
+
+              <div class="kpi-card">
+                <div class="kpi-header">
+                  <span>AVERAGE SERVICE DURATION</span>
+                  <span>⏱️</span>
+                </div>
+                <div id="statAvgServiceTime" class="kpi-val">12m</div>
+                <div class="kpi-meta">Time spent per customer</div>
+              </div>
+
+              <div class="kpi-card">
+                <div class="kpi-header">
+                  <span>AVERAGE WAIT TIME</span>
+                  <span>⌛</span>
+                </div>
+                <div id="statAvgWaitTime" class="kpi-val">18m</div>
+                <div class="kpi-meta">From arrival to being called</div>
+              </div>
+
+              <div class="kpi-card">
+                <div class="kpi-header">
+                  <span>COMPLETION RATE</span>
+                  <span>📊</span>
+                </div>
+                <div id="statCompletionRate" class="kpi-val">85%</div>
+                <div class="kpi-meta">Vs. skipped or cancelled</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUBTAB 4: QUEUE SETTINGS -->
+        <div id="tabPanelSettings" class="tab-content-panel">
+          <form id="formBizSettings" class="settings-form-grid">
+            <div class="settings-card">
+              <h3 style="font-size:1.1rem; font-weight:700; margin-bottom:1.25rem;">Business Profile</h3>
+              
+              <div class="form-group">
+                <label class="form-label">Business Name</label>
+                <input id="settingBizName" type="text" class="form-control" required />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Category</label>
+                <select id="settingBizCategory" class="form-control">
+                  <option value="Clinic">Clinic / Medical</option>
+                  <option value="Salon">Salon & Spa</option>
+                  <option value="Repair shop">Repair Shop</option>
+                  <option value="Government service centre">Government Service Centre</option>
+                  <option value="Consultancy">Consultancy / Professional</option>
+                  <option value="Other">Other Business</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Public URL Slug</label>
+                <input id="settingBizSlug" type="text" class="form-control" required />
+                <div class="form-helper">Used in QR codes and customer tracking links (letters, numbers, dashes).</div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Address (Optional)</label>
+                <input id="settingBizAddress" type="text" class="form-control" />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Description (Optional)</label>
+                <textarea id="settingBizDescription" rows="2" class="form-control"></textarea>
+              </div>
+            </div>
+
+            <div class="settings-card">
+              <h3 style="font-size:1.1rem; font-weight:700; margin-bottom:1.25rem;">Queue & Wait Estimation Rules</h3>
+              
+              <div class="form-group">
+                <label class="form-label">Average Service Duration (Minutes)</label>
+                <input id="settingAvgServiceMins" type="number" min="1" max="180" class="form-control" required />
+                <div class="form-helper">Used for smart waiting time algorithm when customers join the queue.</div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Daily Queue Token Capacity</label>
+                <input id="settingDailyCapacity" type="number" min="10" max="1000" class="form-control" />
+              </div>
+
+              <div style="background:var(--bg-card-secondary); padding:1rem; border-radius:var(--radius-md); margin-top:1.5rem;">
+                <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer; font-weight:600; font-size:0.85rem; margin-bottom:0.75rem;">
+                  <input id="settingQueueOpen" type="checkbox" style="width:18px; height:18px;" />
+                  Queue is Open & Calling
+                </label>
+                <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer; font-weight:600; font-size:0.85rem;">
+                  <input id="settingBookingEnabled" type="checkbox" style="width:18px; height:18px;" />
+                  Allow Customers to Generate Tokens Online
+                </label>
+              </div>
+
+              <div style="margin-top:2rem;">
+                <button type="submit" class="btn btn-primary btn-block">Save Settings</button>
+              </div>
+            </div>
+          </form>
+        </div>
+
+      </section>
+
+      <!-- ============================================================= -->
+      <!-- VIEW 2: CUSTOMER MOBILE-FIRST VIEW                            -->
+      <!-- ============================================================= -->
+      <section id="customerPortalView" class="app-view">
+        <div class="customer-mobile-container">
+          
+          <!-- Business Identity Card -->
+          <div class="customer-business-card">
+            <h2 id="custBizName" class="cust-biz-name">Apex Health Clinic</h2>
+            <div id="custBizCategory" class="cust-biz-cat">Clinic</div>
+            <div id="custBizAddress" class="cust-biz-address">742 Evergreen Terrace, Suite 100</div>
+          </div>
+
+          <!-- STATE 1: PRE-BOOKING SCREEN (Customer generating token) -->
+          <div id="customerPreBookingSection">
+            <div class="queue-snapshot-card">
+              <div class="snapshot-item">
+                <div id="custNowServingVal" class="val">QN-C101</div>
+                <div class="lbl">Now Serving</div>
+              </div>
+              <div class="snapshot-item">
+                <div id="custTotalWaitingVal" class="val">3</div>
+                <div class="lbl">In Queue</div>
+              </div>
+              <div class="snapshot-item">
+                <div id="custEstWaitVal" class="val">~24m</div>
+                <div class="lbl">Est. Wait</div>
+              </div>
+            </div>
+
+            <div style="background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:1.5rem; margin-bottom:1.25rem; box-shadow:var(--shadow-xs);">
+              <h3 style="font-size:1.1rem; font-weight:700; margin-bottom:1rem; text-align:center;">
+                Get Your Digital Queue Token
+              </h3>
+              
+              <div class="form-group">
+                <label class="form-label">Your Name (Optional)</label>
+                <input id="custInputName" type="text" class="form-control" placeholder="e.g. John Doe" />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Phone Number (Optional)</label>
+                <input id="custInputPhone" type="tel" class="form-control" placeholder="For turn alerts" />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Reason / Notes (Optional)</label>
+                <input id="custInputNotes" type="text" class="form-control" placeholder="e.g. Prescription, Consultation" />
+              </div>
+
+              <button id="btnGetToken" class="btn btn-primary btn-block btn-lg" style="margin-top:1.25rem;">
+                GET YOUR TOKEN
+              </button>
+            </div>
+
+            <div style="text-align:center; font-size:0.75rem; color:var(--text-muted);">
+              No account required • Live updates without page reload • Real-time notifications
+            </div>
+          </div>
+
+          <!-- STATE 2: ACTIVE TRACKING TICKET (Customer tracking live position) -->
+          <div id="customerActiveTicketSection" style="display:none;">
+            <div class="active-ticket-card">
+              <div class="ticket-notch-left"></div>
+              <div class="ticket-notch-right"></div>
+
+              <div style="font-size:0.7rem; letter-spacing:0.08em; color:var(--text-muted); font-weight:700; text-transform:uppercase;">
+                YOUR QUEUE TOKEN
+              </div>
+
+              <div id="custTicketTokenNumber" class="customer-token-giant">QN-C104</div>
+
+              <div id="custTicketStatusPill" class="customer-status-pill">
+                ⏳ WAITING IN LINE
+              </div>
+
+              <div class="customer-position-grid">
+                <div class="position-stat-box">
+                  <div id="custPositionNumber" class="num">#3</div>
+                  <div class="desc">Your Position in Line</div>
+                </div>
+                <div class="position-stat-box">
+                  <div id="custAheadCount" class="num">2</div>
+                  <div class="desc">Customers Ahead</div>
+                </div>
+              </div>
+
+              <div class="wait-time-banner">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span id="custWaitBannerText">Estimated Wait: ~24 minutes</span>
+              </div>
+
+              <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.5rem;">
+                Now Serving at Counter: <strong id="custNowServingRef" style="color:var(--text-primary);">QN-C101</strong>
+              </div>
+            </div>
+
+            <!-- Customer Actions -->
+            <div class="customer-actions-card">
+              <button id="btnCustCopyLink" class="btn btn-secondary btn-block">
+                📋 Copy My Tracking Link
+              </button>
+              <button id="btnCustCancelToken" class="btn btn-outline btn-block">
+                Cancel My Token
+              </button>
+              <button id="btnCustAnotherToken" class="btn btn-outline btn-block btn-sm" style="margin-top:0.35rem;">
+                Get Another Token
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ============================================================= -->
+      <!-- VIEW 3: PUBLIC WAITING ROOM TV DISPLAY                        -->
+      <!-- ============================================================= -->
+      <section id="tvDisplayView" class="app-view">
+        <div class="tv-display-container">
+          
+          <!-- TV Header -->
+          <div class="tv-header-row">
+            <div class="tv-biz-block">
+              <h2 id="tvBizName">Apex Health Clinic</h2>
+              <p id="tvBizCategory">Live Waiting Room Queue Display</p>
+            </div>
+            
+            <div style="display:flex; align-items:center; gap:2rem;">
+              <div class="tv-clock-block">
+                <div id="tvLiveClockTime" class="tv-clock-time">09:42:15</div>
+                <div id="tvLiveClockDate" class="tv-clock-date">Thursday, Nov 5</div>
+              </div>
+              <button id="btnTvFullscreen" class="btn btn-secondary btn-sm" title="Toggle Fullscreen">
+                ⛶ Fullscreen
+              </button>
+            </div>
+          </div>
+
+          <!-- TV Main Stage -->
+          <div class="tv-main-stage">
+            
+            <!-- Hero Currently Serving Token -->
+            <div class="tv-hero-serving-box">
+              <div class="tv-hero-title">
+                <span class="live-dot" style="width:12px; height:12px;"></span>
+                NOW SERVING
+              </div>
+              <div id="tvGiantServingToken" class="tv-giant-token">QN-C101</div>
+              <div id="tvServingMeta" class="tv-serving-meta">Sarah Connor • Counter 1</div>
+            </div>
+
+            <!-- Next Up Preview Box -->
+            <div class="tv-queue-preview-box">
+              <div class="tv-queue-title">
+                <span>NEXT IN LINE</span>
+                <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">UPCOMING</span>
+              </div>
+              <div id="tvNextTokensList" class="tv-next-tokens-list">
+                <!-- Dynamically rendered -->
+              </div>
+            </div>
+
+          </div>
+
+          <!-- TV Footer Ticker & QR Code -->
+          <div class="tv-footer-ticker">
+            <div class="tv-ticker-stat">
+              Waiting Customers: <strong id="tvWaitingCountStat">3</strong>
+            </div>
+            <div class="tv-ticker-stat">
+              Avg Wait Time: <strong id="tvAvgWaitStat">~12 mins</strong>
+            </div>
+            <div class="tv-ticker-stat">
+              Status: <strong id="tvStatusStat">Queue Active</strong>
+            </div>
+            
+            <div style="display:flex; align-items:center; gap:0.75rem;">
+              <div id="tvQrCodeContainer"></div>
+              <div style="font-size:0.8rem; color:var(--text-secondary); text-align:left; line-height:1.2;">
+                Scan QR with phone<br />to join the queue
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ============================================================= -->
+    <!-- MODAL 1: ADD MANUAL WALK-IN TOKEN                             -->
+    <!-- ============================================================= -->
+    <div id="modalAddWalkIn" class="modal-backdrop">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <h3>Issue Manual Walk-In Token</h3>
+          <button class="modal-close-btn" onclick="window.QueueApp.closeModal('modalAddWalkIn')">✕</button>
+        </div>
+        <form id="formAddWalkIn">
+          <div class="modal-body">
+            <div class="form-group">
+              <label class="form-label">Customer Name</label>
+              <input id="walkInName" type="text" class="form-control" placeholder="Walk-in Patient / Client" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Phone Number (Optional)</label>
+              <input id="walkInPhone" type="tel" class="form-control" placeholder="e.g. 555-0199" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Service Notes / Reason (Optional)</label>
+              <input id="walkInNotes" type="text" class="form-control" placeholder="e.g. Consultation, Checkup, Repair" />
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="window.QueueApp.closeModal('modalAddWalkIn')">Cancel</button>
+            <button type="submit" class="btn btn-primary">Issue Token</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ============================================================= -->
+    <!-- MODAL 2: SUPABASE DATABASE CONFIGURATION & SQL HELPER        -->
+    <!-- ============================================================= -->
+    <div id="modalSupabaseConfig" class="modal-backdrop">
+      <div class="modal-dialog" style="max-width: 620px;">
+        <div class="modal-header">
+          <h3>Supabase Database & Realtime Setup</h3>
+          <button class="modal-close-btn" onclick="window.QueueApp.closeModal('modalSupabaseConfig')">✕</button>
+        </div>
+        <form id="formSupabaseConfig">
+          <div class="modal-body">
+            <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:1rem;">
+              QueueNow is fully equipped with Supabase PostgreSQL, Authentication, and Realtime replication. Connect your Supabase project below, or keep using the pre-configured Instant Live Mesh.
+            </p>
+
+            <div class="form-group">
+              <label class="form-label">Supabase Project URL</label>
+              <input id="supabaseUrlInput" type="url" class="form-control" placeholder="https://xyzcompany.supabase.co" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Supabase Anon Key</label>
+              <input id="supabaseAnonKeyInput" type="text" class="form-control" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6..." />
+            </div>
+
+            <div style="background:var(--bg-card-secondary); padding:1rem; border-radius:var(--radius-md); margin-top:1rem;">
+              <div style="font-size:0.85rem; font-weight:700; color:#93c5fd; margin-bottom:0.35rem;">
+                📄 Database Schema File: <code style="color:#fff;">supabase-schema.sql</code>
+              </div>
+              <p style="font-size:0.78rem; color:var(--text-secondary); line-height:1.4;">
+                The complete SQL setup with RLS policies, atomic <code style="color:#93c5fd;">call_next_token</code> RPC function, and Realtime publications has been generated in your project root as <strong>supabase-schema.sql</strong>. Run it in your Supabase SQL Editor.
+              </p>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="window.QueueApp.closeModal('modalSupabaseConfig')">Close</button>
+            <button type="submit" class="btn btn-primary">Save & Connect</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ============================================================= -->
+    <!-- MODAL 3: CREATE NEW BUSINESS PROFILE                          -->
+    <!-- ============================================================= -->
+    <div id="modalCreateBusiness" class="modal-backdrop">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <h3>Create New Business Profile</h3>
+          <button class="modal-close-btn" onclick="window.QueueApp.closeModal('modalCreateBusiness')">✕</button>
+        </div>
+        <form id="formCreateBusiness">
+          <div class="modal-body">
+            <div class="form-group">
+              <label class="form-label">Business Name</label>
+              <input id="newBizName" type="text" class="form-control" placeholder="e.g. City Barber & Salon" required />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Category</label>
+              <select id="newBizCategory" class="form-control" required>
+                <option value="Clinic">Clinic</option>
+                <option value="Salon">Salon</option>
+                <option value="Repair shop">Repair shop</option>
+                <option value="Government service centre">Government service centre</option>
+                <option value="Consultancy">Consultancy</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Unique Business Slug (for public links)</label>
+              <input id="newBizSlug" type="text" class="form-control" placeholder="e.g. city-salon" required />
+              <div class="form-helper">This will form your link: ?join=city-salon</div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Address (Optional)</label>
+              <input id="newBizAddress" type="text" class="form-control" placeholder="Street, City, Suite #" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Average Service Duration (Minutes)</label>
+              <input id="newBizAvgMinutes" type="number" min="1" max="180" value="15" class="form-control" required />
+              <div class="form-helper">Used to estimate customer waiting times.</div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Description (Optional)</label>
+              <textarea id="newBizDescription" rows="2" class="form-control" placeholder="Describe your services..."></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="window.QueueApp.closeModal('modalCreateBusiness')">Cancel</button>
+            <button type="submit" class="btn btn-primary">Create Profile</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Notification Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Application Script Entry Point -->
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,6 @@
+{
+  "name": "QueueNow",
+  "description": "Real-time digital token and queue management SaaS for clinics, salons, repair shops, and service businesses.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
